@@ -1,103 +1,171 @@
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
-import Head from 'next/head';
-import { supabase } from '../../lib/supabaseClient';
-import { ShoppingCart, Plus, Minus, Search } from 'lucide-react';
+// ============================================================
+// FILE: pages/store/[slug].js
+// FUNGSI: Halaman toko publik untuk pembeli
+// GANTI SELURUH CODE DI FILE INI
+// ============================================================
 
-export default function StorePublic() {
-  const router = useRouter();
-  const { slug } = router.query;
-  const [store, setStore] = useState<any>(null);
-  const [products, setProducts] = useState<any[]>([]);
-  const [cart, setCart] = useState<Record<string, number>>({});
-  const [showCart, setShowCart] = useState(false);
+import { useState } from 'react';
+import { supabase } from '../../lib/supabase';
+import Header from '../../components/Header';
 
-  useEffect(() => { if (slug) fetchData(); }, [slug]);
+export default function StorePage({ store, products }) {
+  const [cart, setCart] = useState([]);
 
-  const fetchData = async () => {
-    const { data: storeData } = await supabase.from('stores').select('*, theme:store_themes(*)').eq('slug', slug).single();
-    if (!storeData) { router.push('/404'); return; }
-    setStore(storeData);
-    const { data: productsData } = await supabase.from('products').select('*').eq('store_id', storeData.id).eq('is_active', true);
-    setProducts(productsData || []);
+  const addToCart = (product) => {
+    setCart([...cart, product]);
+    alert(`✅ ${product.name} ditambahkan ke keranjang!`);
   };
 
-  const addToCart = (product: any) => {
-    const newCart = { ...cart, [product.id]: (cart[product.id] || 0) + 1 };
-    setCart(newCart);
-    localStorage.setItem(`cart_${store.id}`, JSON.stringify(Object.entries(newCart).map(([id, qty]) => ({ ...products.find((p: any) => p.id === id), quantity: qty }))));
-  };
-
-  const cartItems = Object.entries(cart).map(([id, qty]) => ({ ...products.find((p: any) => p.id === id), quantity: qty })).filter(i => i.id);
-  const cartTotal = cartItems.reduce((sum, i: any) => sum + (i.price * i.quantity), 0);
-
-  if (!store) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" /></div>;
+  if (!store) {
+    return <div>Toko tidak ditemukan</div>;
+  }
 
   return (
-    <>
-      <Head><title>{store.name}</title></Head>
-      <div className="min-h-screen bg-gray-50">
-        <header className="bg-white shadow-sm sticky top-0 z-20">
-          <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-            <h1 className="text-xl font-bold text-blue-600">{store.name}</h1>
-            <button onClick={() => setShowCart(true)} className="relative p-2">
-              <ShoppingCart className="w-6 h-6" />
-              {Object.keys(cart).length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">{Object.values(cart).reduce((a: any, b: any) => a + b, 0)}</span>}
-            </button>
-          </div>
-        </header>
+    <div style={{ minHeight: '100vh', background: '#f3f4f6' }}>
+      <Header storeName={store.name} storeSlug={store.slug} />
 
-        <div className="max-w-6xl mx-auto px-4 py-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {products.map(product => (
-              <div key={product.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div className="aspect-square bg-gray-200">{product.image_url && <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />}</div>
-                <div className="p-4">
-                  <h3 className="font-medium text-sm">{product.name}</h3>
-                  <p className="font-bold text-blue-600">Rp {product.price.toLocaleString()}</p>
-                  {cart[product.id] ? (
-                    <div className="flex items-center justify-center gap-2 mt-2 bg-gray-100 rounded-lg p-1">
-                      <button onClick={() => setCart({ ...cart, [product.id]: Math.max(0, cart[product.id] - 1) })} className="w-8 h-8 bg-white rounded flex items-center justify-center">-</button>
-                      <span>{cart[product.id]}</span>
-                      <button onClick={() => addToCart(product)} className="w-8 h-8 bg-white rounded flex items-center justify-center">+</button>
-                    </div>
-                  ) : (
-                    <button onClick={() => addToCart(product)} disabled={product.stock === 0} className="w-full mt-2 py-2 bg-green-500 text-white rounded-lg text-sm disabled:bg-gray-300">{product.stock === 0 ? 'Habis' : 'Tambah'}</button>
-                  )}
+      {/* BANNER TOKO */}
+      <div style={{
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        color: 'white',
+        padding: '60px 20px',
+        textAlign: 'center'
+      }}>
+        <h1 style={{ fontSize: '42px', marginBottom: '10px' }}>{store.name}</h1>
+        <p style={{ fontSize: '18px', opacity: '0.9' }}>
+          Selamat datang di toko kami 🛍️
+        </p>
+      </div>
+
+      {/* PRODUK */}
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' }}>
+        <h2 style={{ fontSize: '28px', marginBottom: '30px' }}>📦 Produk Kami</h2>
+        
+        {products.length === 0 ? (
+          <p style={{ textAlign: 'center', color: '#666' }}>
+            Belum ada produk
+          </p>
+        ) : (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: '30px'
+          }}>
+            {products.map((product) => (
+              <div key={product.id} style={{
+                background: 'white',
+                borderRadius: '15px',
+                overflow: 'hidden',
+                boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                transition: 'transform 0.3s'
+              }}>
+                {/* GAMBAR PRODUK */}
+                <div style={{
+                  height: '250px',
+                  background: '#e5e7eb',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '80px'
+                }}>
+                  📷
+                </div>
+
+                {/* INFO PRODUK */}
+                <div style={{ padding: '20px' }}>
+                  <h3 style={{ 
+                    fontSize: '20px', 
+                    marginBottom: '10px',
+                    color: '#1f2937'
+                  }}>
+                    {product.name}
+                  </h3>
+                  
+                  <p style={{ 
+                    fontSize: '24px', 
+                    fontWeight: 'bold',
+                    color: '#2563eb',
+                    marginBottom: '15px'
+                  }}>
+                    Rp {product.price?.toLocaleString('id-ID')}
+                  </p>
+
+                  <button
+                    onClick={() => addToCart(product)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      transition: 'background 0.3s'
+                    }}
+                  >
+                    🛒 Tambah ke Keranjang
+                  </button>
                 </div>
               </div>
             ))}
           </div>
-        </div>
-
-        {showCart && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex justify-end">
-            <div className="bg-white w-full max-w-md h-full p-4 flex flex-col">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold">Keranjang</h2>
-                <button onClick={() => setShowCart(false)}>✕</button>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                {cartItems.map((item: any) => (
-                  <div key={item.id} className="flex gap-3 p-3 bg-gray-50 rounded-lg mb-2">
-                    <div className="w-16 h-16 bg-gray-200 rounded">{item.image_url && <img src={item.image_url} className="w-full h-full object-cover rounded" />}</div>
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{item.name}</p>
-                      <p className="text-sm">Rp {(item.price * item.quantity).toLocaleString()}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {cartItems.length > 0 && (
-                <div className="border-t pt-4">
-                  <div className="flex justify-between mb-4"><span className="font-medium">Total</span><span className="font-bold text-xl">Rp {cartTotal.toLocaleString()}</span></div>
-                  <button onClick={() => router.push(`/checkout/wa?store_id=${store.id}`)} className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium">Checkout via WhatsApp</button>
-                </div>
-              )}
-            </div>
-          </div>
         )}
       </div>
-    </>
+
+      {/* FLOATING CART BUTTON */}
+      {cart.length > 0 && (
+        <a
+          href="/checkout"
+          style={{
+            position: 'fixed',
+            bottom: '30px',
+            right: '30px',
+            background: '#ef4444',
+            color: 'white',
+            padding: '20px 30px',
+            borderRadius: '50px',
+            textDecoration: 'none',
+            fontWeight: 'bold',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}
+        >
+          🛒 {cart.length} Item → Checkout
+        </a>
+      )}
+    </div>
   );
+}
+
+// Ambil data toko dan produk
+export async function getServerSideProps({ params }) {
+  const { slug } = params;
+
+  // Ambil toko
+  const { data: store } = await supabase
+    .from('stores')
+    .select('*')
+    .eq('slug', slug)
+    .single();
+
+  if (!store) {
+    return { notFound: true };
+  }
+
+  // Ambil produk toko ini
+  const { data: products } = await supabase
+    .from('products')
+    .select('*')
+    .eq('store_id', store.id);
+
+  return {
+    props: {
+      store,
+      products: products || []
+    }
+  };
 }
